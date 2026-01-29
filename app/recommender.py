@@ -22,18 +22,21 @@ def load_model():
 
     indices = pd.Series(movies.index, index=movies["title"])
 
-def recommend_movies(movie_title: str, top_n: int = 5):
-    load_model()
+def recommend_movies(movie_name, n_recommendations=5):
+    movie_name = movie_name.lower()
 
-    if movie_title not in indices:
-        return []
+    matches = movies[movies['title'].str.lower().str.contains(movie_name)]
 
-    idx = indices[movie_title]
+    if matches.empty:
+        return None
 
-    # Compute similarity ONLY for one movie (not full matrix)
-    sim_scores = cosine_similarity(
-        tfidf_matrix[idx], tfidf_matrix
-    ).flatten()
+    movie_id = matches.iloc[0]['movieId']
 
-    similar_indices = sim_scores.argsort()[::-1][1:top_n + 1]
-    return movies["title"].iloc[similar_indices].tolist()
+    similar_movies = similarity_df[movie_id].sort_values(ascending=False)
+
+    similar_movies = similar_movies.iloc[1:n_recommendations+1]
+
+    recommended_ids = similar_movies.index.tolist()
+
+    return movies[movies['movieId'].isin(recommended_ids)]['title'].tolist()
+
