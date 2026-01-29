@@ -16,5 +16,9 @@ def recommend(movie: str):
         "movie": movie,
         "recommendations": results
     }
+@app.get("/movies")
+def list_movies():
+    return movies['title'].sample(20).tolist()
+
 
 
