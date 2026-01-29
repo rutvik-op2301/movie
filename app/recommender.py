@@ -2,29 +2,38 @@ import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Load movie data
-movies = pd.read_csv("data/movies.csv")
+# Lazy globals
+movies = None
+tfidf = None
+tfidf_matrix = None
+indices = None
 
-# Clean genres
-movies["genres"] = movies["genres"].str.replace("|", " ", regex=False)
+def load_model():
+    global movies, tfidf, tfidf_matrix, indices
 
-# Vectorization
-tfidf = TfidfVectorizer(stop_words="english")
-tfidf_matrix = tfidf.fit_transform(movies["genres"])
+    if movies is not None:
+        return
 
-# Similarity matrix
-cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+    movies = pd.read_csv("data/movies.csv")
+    movies["genres"] = movies["genres"].str.replace("|", " ", regex=False)
 
-# Index mapping
-indices = pd.Series(movies.index, index=movies["title"])
+    tfidf = TfidfVectorizer(stop_words="english", max_features=3000)
+    tfidf_matrix = tfidf.fit_transform(movies["genres"])
+
+    indices = pd.Series(movies.index, index=movies["title"])
 
 def recommend_movies(movie_title: str, top_n: int = 5):
+    load_model()
+
     if movie_title not in indices:
         return []
 
     idx = indices[movie_title]
-    sim_scores = list(enumerate(cosine_sim[idx]))
-    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-    sim_scores = sim_scores[1:top_n+1]
 
-    return movies["title"].iloc[[i[0] for i in sim_scores]].tolist()
+    # Compute similarity ONLY for one movie (not full matrix)
+    sim_scores = cosine_similarity(
+        tfidf_matrix[idx], tfidf_matrix
+    ).flatten()
+
+    similar_indices = sim_scores.argsort()[::-1][1:top_n + 1]
+    return movies["title"].iloc[similar_indices].tolist()
